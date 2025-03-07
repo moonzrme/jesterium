@@ -13,6 +13,11 @@ export default function Home() {
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
 
+  // Додаткові стани для верифікації
+  const [isVerificationMode, setIsVerificationMode] = useState(false);
+  const [verificationCode, setVerificationCode] = useState("");
+  const [registeredUser, setRegisteredUser] = useState("");
+
   async function handleLogin(e) {
     e.preventDefault();
     setError("");
@@ -60,8 +65,36 @@ export default function Home() {
       alert(
         "Registration successful. Please check your email for a confirmation code."
       );
-      // Опціонально: автоматичне переключення на форму входу після реєстрації
-      setActiveTab("login");
+      // Замінюємо режим реєстрації режимом верифікації
+      setRegisteredUser(data.user.login);
+      setIsVerificationMode(true);
+    } catch (err) {
+      setError(err.message);
+    }
+  }
+
+  async function handleVerifyCode(e) {
+    e.preventDefault();
+    setError("");
+    try {
+      const res = await fetch(
+        process.env.NEXT_PUBLIC_API_URL + "/users/verify-email",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ login: registeredUser, code: verificationCode }),
+        }
+      );
+      const data = await res.json();
+      if (data && data.success) {
+        alert("Email успішно підтверджено");
+        // Після верифікації можна перемкнутися на форму входу або іншу логіку
+        setActiveTab("login");
+        setIsVerificationMode(false);
+        setVerificationCode("");
+      } else {
+        alert(data.message || data.error || "Невірний код");
+      }
     } catch (err) {
       setError(err.message);
     }
@@ -94,13 +127,19 @@ export default function Home() {
       <div className="auth-container">
         <div className="tabs">
           <button
-            onClick={() => setActiveTab("login")}
+            onClick={() => {
+              setActiveTab("login");
+              setIsVerificationMode(false);
+            }}
             className={activeTab === "login" ? "active" : ""}
           >
             Login
           </button>
           <button
-            onClick={() => setActiveTab("register")}
+            onClick={() => {
+              setActiveTab("register");
+              setIsVerificationMode(false);
+            }}
             className={activeTab === "register" ? "active" : ""}
           >
             Register
@@ -138,41 +177,59 @@ export default function Home() {
           </form>
         )}
         {activeTab === "register" && (
-          <form onSubmit={handleRegister} className="form-section">
-            <input
-              type="text"
-              placeholder="Login"
-              value={loginVal}
-              onChange={(e) => setLoginVal(e.target.value)}
-              required
-            />
-            <input
-              type="email"
-              placeholder="Email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              required
-            />
-            <div className="password-wrapper">
-              <input
-                type={showPassword ? "text" : "password"}
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword((prev) => !prev)}
-                className="toggle-password"
-              >
-                {showPassword ? "Hide" : "Show"}
-              </button>
-            </div>
-            <motion.button type="submit" whileHover={{ scale: 1.05 }}>
-              Register
-            </motion.button>
-          </form>
+          <>
+            {!isVerificationMode ? (
+              <form onSubmit={handleRegister} className="form-section">
+                <input
+                  type="text"
+                  placeholder="Login"
+                  value={loginVal}
+                  onChange={(e) => setLoginVal(e.target.value)}
+                  required
+                />
+                <input
+                  type="email"
+                  placeholder="Email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  required
+                />
+                <div className="password-wrapper">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    placeholder="Password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="toggle-password"
+                  >
+                    {showPassword ? "Hide" : "Show"}
+                  </button>
+                </div>
+                <motion.button type="submit" whileHover={{ scale: 1.05 }}>
+                  Register
+                </motion.button>
+              </form>
+            ) : (
+              <form onSubmit={handleVerifyCode} className="form-section">
+                <input
+                  type="text"
+                  name="code"
+                  placeholder="Введіть код підтвердження"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  required
+                />
+                <motion.button type="submit" whileHover={{ scale: 1.05 }}>
+                  Підтвердити код
+                </motion.button>
+              </form>
+            )}
+          </>
         )}
       </div>
 
